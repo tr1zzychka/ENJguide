@@ -1,0 +1,89 @@
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+html,body { width:100%; height:100%; overflow:hidden; background:#fafafa; color:#111;
+  font-family: -apple-system,'Inter','Segoe UI',Roboto,sans-serif; user-select:none }
+#stage { position:fixed; inset:0 }
+#stage canvas { display:block }
+
+aside {
+  position:fixed; background:rgba(255,255,255,.9);
+  border:1px solid #e8e8e8; border-radius:14px; padding:14px;
+  backdrop-filter:blur(14px); box-shadow:0 8px 26px rgba(0,0,0,.06);
+  z-index:10;
+}
+#controls { top:16px; left:16px; width:250px }
+#diag     { top:16px; right:16px; width:270px }
+
+header h1 { font-size:11px; letter-spacing:3px; font-weight:800 }
+header .sub { font-size:9px; color:#a8a8a8; letter-spacing:1.5px; margin-bottom:12px; margin-top:2px }
+
+#controls section { margin-bottom:10px }
+.lbl { display:flex; justify-content:space-between; font-size:9.5px; font-weight:700;
+  letter-spacing:1.3px; color:#9a9a9a; margin-bottom:5px }
+.lbl span { color:#111; font-variant-numeric:tabular-nums }
+
+input[type=range] { -webkit-appearance:none; width:100%; height:3px; border-radius:2px;
+  background:#e8e8e8; outline:none }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px;
+  border-radius:50%; background:#111; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.25) }
+input[type=range]::-moz-range-thumb { width:14px; height:14px; border:none; border-radius:50%;
+  background:#111; cursor:pointer }
+
+.row { display:flex; gap:6px; margin-top:12px }
+.mini { flex:1; padding:7px 0; border-radius:8px; border:1px solid #e2e2e2; background:#fff;
+  font-size:10px; font-weight:700; letter-spacing:.8px; color:#555; cursor:pointer;
+  font-family:inherit; transition:.15s }
+.mini:hover { background:#f5f5f5 }
+.mini:active { transform:scale(.97) }
+
+/* ──── Диагностика ──── */
+.dgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px }
+.dcell { padding:6px 8px; background:#f7f8fa; border-radius:7px; min-width:0 }
+.dcell .k { font-size:8.5px; letter-spacing:1.2px; color:#a8a8a8; font-weight:700 }
+.dcell .v { font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.dcell .u { font-size:8px; color:#b8b8b8; margin-left:2px }
+.dcell.warn .v { color:#e8a33d }
+.dcell.bad  .v { color:#e5484d }
+.dcell.good .v { color:#17c06a }
+
+/* ──── График ──── */
+#graph { position:fixed; bottom:16px; right:16px; background:rgba(255,255,255,.9);
+  border:1px solid #e8e8e8; border-radius:14px; padding:10px 12px;
+  backdrop-filter:blur(14px); box-shadow:0 8px 26px rgba(0,0,0,.06); z-index:10 }
+.gh { font-size:9px; letter-spacing:1.6px; color:#a8a8a8; font-weight:700; margin-bottom:6px }
+#pvCanvas { display:block }
+
+/* ──── Большая кнопка ──── */
+#bigBtn {
+  position:fixed; bottom:20px; left:20px;
+  width:150px; height:150px; border-radius:50%;
+  border:none; cursor:pointer; font-family:inherit;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.12), inset 0 0 0 1px #e8e8e8;
+  transition:.2s; z-index:20;
+}
+#bigBtn .ring {
+  position:absolute; inset:8px; border-radius:50%;
+  border:3px solid #e0e0e0; transition:.25s;
+}
+#bigBtn span#bigLabel { font-size:22px; font-weight:800; letter-spacing:2px; color:#111; z-index:1 }
+#bigBtn span#bigState { font-size:8.5px; letter-spacing:2px; color:#a8a8a8; font-weight:700;
+  margin-top:2px; z-index:1 }
+
+#bigBtn.stopped  .ring { border-color:#dcdcdc }
+#bigBtn.starting .ring { border-color:#e8a33d; animation:pulse 1s infinite }
+#bigBtn.running  .ring { border-color:#17c06a; box-shadow:0 0 0 4px rgba(23,192,106,.16) }
+#bigBtn.running  span#bigLabel { color:#17c06a }
+#bigBtn.stopping .ring { border-color:#e8a33d; animation:pulse .5s infinite }
+#bigBtn.failed   .ring { border-color:#e5484d; animation:shake .4s }
+#bigBtn.failed   span#bigLabel { color:#e5484d }
+
+@keyframes pulse { 50% { transform:scale(1.06); opacity:.7 } }
+@keyframes shake { 25% { transform:translateX(-3px) } 75% { transform:translateX(3px) } }
+
+@media (max-width:900px) {
+  #controls { transform:scale(.9); transform-origin:top left }
+  #diag { transform:scale(.9); transform-origin:top right }
+  #graph { display:none }
+  #bigBtn { width:110px; height:110px }
+}

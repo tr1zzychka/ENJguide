@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Engine</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#fafafa;
+  font-family:system-ui,sans-serif;user-select:none}
+#stage{position:fixed;inset:0}
+#ui{position:fixed;top:16px;left:16px;width:240px;background:rgba(255,255,255,.92);
+  border:1px solid #e8e8e8;border-radius:14px;padding:14px;z-index:10}
+#diag{position:fixed;top:16px;right:16px;width:250px;background:rgba(255,255,255,.92);
+  border:1px solid #e8e8e8;border-radius:14px;padding:14px;z-index:10}
+#wearPanel{position:fixed;bottom:16px;right:16px;width:250px;
+  background:rgba(255,255,255,.92);border:1px solid #e8e8e8;border-radius:14px;
+  padding:14px;z-index:10}
+.lbl{display:flex;justify-content:space-between;font-size:10px;font-weight:700;
+  letter-spacing:1.2px;color:#999;margin:10px 0 4px}
+.lbl span{color:#111}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;border-radius:2px;
+  background:#e8e8e8;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:#111;cursor:pointer}
+.d{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+.c{padding:5px 7px;background:#f7f8fa;border-radius:6px}
+.c .k{font-size:8px;letter-spacing:1px;color:#aaa;font-weight:700}
+.c .v{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.wrow{display:flex;justify-content:space-between;font-size:10px;font-weight:600;
+  color:#333;margin-top:7px}
+.wv{font-variant-numeric:tabular-nums;color:#888;font-weight:700}
+.wbar{height:3px;background:#eee;border-radius:2px;margin-top:3px;overflow:hidden}
+.wbar i{display:block;height:100%;width:0%;background:#17c06a;
+  transition:width .25s,background .3s;border-radius:2px}
+#btn{position:fixed;bottom:20px;left:20px;width:130px;height:130px;border-radius:50%;
+  border:4px solid #ddd;background:#fff;cursor:pointer;font-family:inherit;
+  font-size:18px;font-weight:800;letter-spacing:2px;color:#111;
+  box-shadow:0 8px 30px rgba(0,0,0,.1);transition:.2s;z-index:20}
+#btn.run{border-color:#17c06a;color:#17c06a}
+#btn.start{border-color:#e8a33d;color:#e8a33d}
+#btn.fail{border-color:#e5484d;color:#e5484d}
+#state{position:fixed;bottom:160px;left:20px;font-size:10px;letter-spacing:2px;
+  color:#aaa;font-weight:700;z-index:20}
+#snd{position:fixed;bottom:20px;left:170px;font-size:10px;letter-spacing:1px;
+  color:#999;font-weight:700;z-index:20;cursor:pointer;padding:6px 10px;
+  border:1px solid #ddd;border-radius:6px;background:#fff}
+#snd.on{color:#17c06a;border-color:#17c06a}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="ui">
+  <div style="font-size:11px;letter-spacing:2px;font-weight:800">TEST BENCH</div>
+  <div style="font-size:9px;color:#aaa;letter-spacing:1px;margin-bottom:8px">1 CYL · 402 CM³</div>
+  <div class="lbl">ДРОССЕЛЬ <span id="v1">0%</span></div>
+  <input type="range" id="thr" min="0" max="100" value="0">
+  <div class="lbl">AFR <span id="v2">14.7</span></div>
+  <input type="range" id="afr" min="9" max="20" step="0.1" value="14.7">
+  <div class="lbl">ОПЕРЕЖЕНИЕ <span id="v3">-15°</span></div>
+  <input type="range" id="spk" min="-40" max="5" value="-15">
+  <div class="lbl">МАСЛО <span id="v4">80%</span></div>
+  <input type="range" id="oil" min="0" max="100" value="80">
+</div>
+<div id="diag">
+  <div style="font-size:10px;letter-spacing:2px;font-weight:800;margin-bottom:6px">ДИАГНОСТИКА</div>
+  <div class="d" id="grid"></div>
+</div>
+<div id="wearPanel">
+  <div style="font-size:10px;letter-spacing:2px;font-weight:800;margin-bottom:2px">ИЗНОС ДЕТАЛЕЙ</div>
+  <div style="font-size:8px;color:#aaa;letter-spacing:1px;margin-bottom:4px">100% = РАЗРУШЕНИЕ</div>
+  <div class="wrow"><span>Поршневые кольца</span><span class="wv" id="w_rings">0%</span></div>
+  <div class="wbar"><i id="wb_rings"></i></div>
+  <div class="wrow"><span>Вкладыши</span><span class="wv" id="w_bearings">0%</span></div>
+  <div class="wbar"><i id="wb_bearings"></i></div>
+  <div class="wrow"><span>Клапаны</span><span class="wv" id="w_valves">0%</span></div>
+  <div class="wbar"><i id="wb_valves"></i></div>
+  <div class="wrow"><span>Зеркало цилиндра</span><span class="wv" id="w_bore">0%</span></div>
+  <div class="wbar"><i id="wb_bore"></i></div>
+  <div class="wrow"><span>Поршень</span><span class="wv" id="w_piston">0%</span></div>
+  <div class="wbar"><i id="wb_piston"></i></div>
+  <div class="wrow"><span>Масло (старение)</span><span class="wv" id="w_oil">0%</span></div>
+  <div class="wbar"><i id="wb_oil"></i></div>
+</div>
+<div id="state">STOPPED</div>
+<button id="btn">START</button>
+<div id="snd">🔇 ЗВУК ВЫКЛ</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const BORE=0.08, STROKE=0.08, R=0.04, L=0.14;
+const AREA=Math.PI*BORE*BORE/4, VD=AREA*STROKE, VC=VD/8, TDC=R+L;
+const P_ATM=101325, P_EXH=1.05*P_ATM;
+const R_AIR=287, CV=717.5, CP=1004.5;
+const T_IN=300, T_AMB=293, LHV=44e6, AFR_ST=14.7;
+const I_FLY=0.3;
+const T_COOL=363, RPMF=60/(2*Math.PI);
+
+// ═══ 3D ═══
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+document.getElementById('stage').appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xfafafa);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.01,40);
+camera.position.set(0.55,0.42,0.68);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0.15,0);
+controls.enableDamping=true;
+controls.minDistance=0.2;controls.maxDistance=2.5;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0xdcdcdc,1.5));
+const keyL=new THREE.DirectionalLight(0xffffff,2);
+keyL.position.set(0.5,1,0.6);keyL.castShadow=true;
+keyL.shadow.mapSize.set(2048,2048);
+Object.assign(keyL.shadow.camera,{left:-.5,right:.5,top:.5,bottom:-.5,near:.1,far:5});
+scene.add(keyL);
+const fillL=new THREE.DirectionalLight(0xffffff,0.8);
+fillL.position.set(-0.6,0.5,-0.4);scene.add(fillL);
+const rimL=new THREE.DirectionalLight(0xffffff,0.5);
+rimL.position.set(0.2,0.4,-0.9);scene.add(rimL);
+
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8),
+  new THREE.ShadowMaterial({opacity:0.1}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+
+const M={
+  alu:new THREE.MeshStandardMaterial({color:0xc8ccd4,metalness:.85,roughness:.35}),
+  dark:new THREE.MeshStandardMaterial({color:0x4a5058,metalness:.9,roughness:.3}),
+  steel:new THREE.MeshStandardMaterial({color:0x8e949e,metalness:.94,roughness:.26}),
+  piston:new THREE.MeshStandardMaterial({color:0xe0e4ea,metalness:.92,roughness:.18}),
+  rod:new THREE.MeshStandardMaterial({color:0xb0b6c0,metalness:.92,roughness:.28}),
+  valve:new THREE.MeshStandardMaterial({color:0x6a7078,metalness:.95,roughness:.22}),
+  cu:new THREE.MeshStandardMaterial({color:0xc09060,metalness:1,roughness:.22}),
+};
+
+const eng=new THREE.Group();scene.add(eng);
+
+// Картер
+{const g=new THREE.Group();
+ const b=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.13,0.12),M.alu);
+ b.position.y=-0.02;b.castShadow=b.receiveShadow=true;g.add(b);
+ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.025,32),M.alu);
+ c.position.y=0.055;c.castShadow=true;g.add(c);
+ eng.add(g);}
+
+// ═══ МАСЛО В КАРТЕРЕ ═══
+// Уровень масла меняется от oilLevel (0..1)
+const oilMesh = (() => {
+  const g = new THREE.Mesh(
+    new THREE.BoxGeometry(0.155, 0.06, 0.105),
+    new THREE.MeshStandardMaterial({
+      color: 0x8a6a20,             // янтарный
+      metalness: 0.3,
+      roughness: 0.25,
+      transparent: true,
+      opacity: 0.55,
+      emissive: 0x000000
+    })
+  );
+  g.castShadow = false;
+  eng.add(g);
+  return g;
+})();
+
+// Коленвал
+const crank=new THREE.Group();
+{const j=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.14,20),M.steel);
+ j.rotation.z=Math.PI/2;j.castShadow=true;crank.add(j);
+ for(const x of[-.048,.048]){
+   const w=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.014,28),M.dark);
+   w.rotation.z=Math.PI/2;w.position.x=x;w.castShadow=true;crank.add(w);}
+ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.09,16),M.steel);
+ p.rotation.z=Math.PI/2;p.position.set(0,R,0);crank.add(p);
+ eng.add(crank);}
+
+// Шатун
+const rod=new THREE.Group();
+{const big=new THREE.Mesh(new THREE.TorusGeometry(0.016,0.0055,12,24),M.rod);
+ big.rotation.y=Math.PI/2;big.castShadow=true;rod.add(big);
+ const sh=new THREE.Mesh(new THREE.BoxGeometry(0.013,L,0.008),M.rod);
+ sh.position.y=L/2;sh.castShadow=true;rod.add(sh);
+ const sm=new THREE.Mesh(new THREE.TorusGeometry(0.01,0.0045,12,20),M.rod);
+ sm.rotation.y=Math.PI/2;sm.position.y=L;sm.castShadow=true;rod.add(sm);
+ eng.add(rod);}
+
+// Поршень — материал клонирую, чтобы менять emissive отдельно
+const pistonMat = M.piston.clone();
+const pist=new THREE.Group();
+{const b=new THREE.Mesh(new THREE.CylinderGeometry(0.039,0.039,0.045,32),pistonMat);
+ b.castShadow=true;pist.add(b);
+ const h=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.09,16),M.dark);
+ h.rotation.z=Math.PI/2;pist.add(h);
+ eng.add(pist);}
+
+// Кольца
+const rings=new THREE.Group();
+{for(const y of[.014,.006,-.012]){
+  const r=new THREE.Mesh(new THREE.TorusGeometry(0.039,0.0018,8,32),M.dark);
+  r.rotation.x=Math.PI/2;r.position.y=y;rings.add(r);}
+ eng.add(rings);}
+
+// ═══ ЦИЛИНДР — материал клонирую, чтобы менять прозрачность и цвет ═══
+const cylMat = new THREE.MeshStandardMaterial({
+  color: 0xc4c8d0, metalness: .8, roughness: .3,
+  transparent: true, opacity: .28, side: THREE.DoubleSide,
+  emissive: 0x000000
+});
+{const g=new THREE.Group();
+ const t=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.13,40,1,true), cylMat);
+ t.position.y=0.155;g.add(t);
+ for(let i=0;i<6;i++){const f=new THREE.Mesh(new THREE.TorusGeometry(0.047,0.0022,6,40),M.alu);
+   f.rotation.x=Math.PI/2;f.position.y=0.105+i*0.018;g.add(f);}
+ eng.add(g);}
+
+// ГБЦ
+{const h=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.038,0.1),M.alu);
+ h.position.y=0.23;h.castShadow=true;eng.add(h);}
+
+// Клапаны
+const vM={intake:[],exhaust:[]};
+{const g=new THREE.Group();
+ for(const[dx,name]of[[-.018,'intake'],[.018,'exhaust']]){
+   const st=new THREE.Mesh(new THREE.CylinderGeometry(0.0035,0.0035,0.045,10),M.valve);
+   st.position.set(dx,0.235,0);g.add(st);
+   const pl=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.003,20),M.valve);
+   pl.position.set(dx,0.213,0);g.add(pl);
+   vM[name].push({stem:st,plate:pl,bs:0.235,bp:0.213});}
+ eng.add(g);}
+
+// ═══ СВЕЧА ЗАЖИГАНИЯ ═══
+const sparkGroup = new THREE.Group();
+sparkGroup.position.set(0, 0.263, 0);
+{const s=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.03,12),M.steel);
+ s.castShadow=true;sparkGroup.add(s);
+ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.01,12),M.cu);
+ c.position.y=0.018;sparkGroup.add(c);
+ eng.add(sparkGroup);}
+
+// ═══ ПЛАМЯ В ЦИЛИНДРЕ ═══
+// Светящаяся сфера внутри камеры сгорания. Яркость = burnFrac.
+const flameMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.028, 20, 16),
+  new THREE.MeshBasicMaterial({
+    color: 0xff8a30,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+);
+eng.add(flameMesh);
+
+// Второе, более горячее ядро пламени
+const flameCore = new THREE.Mesh(
+  new THREE.SphereGeometry(0.014, 16, 12),
+  new THREE.MeshBasicMaterial({
+    color: 0xfff0a0,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+);
+eng.add(flameCore);
+
+// Динамический свет от пламени
+const flameLight = new THREE.PointLight(0xff7020, 0, 0.4);
+eng.add(flameLight);
+
+// ═══ ИСКРЫ ═══
+// Массив точек, живущих 0.1 сек, появляются при зажигании
+const sparkPool = [];
+const sparkGeo = new THREE.SphereGeometry(0.0016, 6, 4);
+const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffe060 });
+
+// ═══ МАХОВИК ═══
+const fly=new THREE.Group();
+{const f=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.011,48),M.dark);
+ f.rotation.z=Math.PI/2;f.position.x=0.078;f.castShadow=true;fly.add(f);
+ for(let i=0;i<40;i++){const a=i/40*Math.PI*2;
+   const t=new THREE.Mesh(new THREE.BoxGeometry(0.011,0.004,0.004),M.dark);
+   t.position.set(0.078,Math.cos(a)*0.057,Math.sin(a)*0.057);
+   t.rotation.x=-a;fly.add(t);}
+ eng.add(fly);}
+
+// ═══ ВЫХЛОПНАЯ ТРУБА ═══
+const exhaustPipe = new THREE.Group();
+exhaustPipe.position.set(0, 0.16, -0.14);
+{const pipe=new THREE.Mesh(
+   new THREE.CylinderGeometry(0.014,0.016,0.16,20),
+   new THREE.MeshStandardMaterial({color:0x5a5a60,metalness:.9,roughness:.4})
+ );
+ pipe.rotation.x=Math.PI/2;
+ pipe.castShadow=true;
+ exhaustPipe.add(pipe);
+ // раструб на конце
+ const tip=new THREE.Mesh(
+   new THREE.CylinderGeometry(0.022,0.016,0.02,20),
+   new THREE.MeshStandardMaterial({color:0x3a3a40,metalness:.95,roughness:.3})
+ );
+ tip.rotation.x=Math.PI/2;
+ tip.position.z=-0.09;
+ exhaustPipe.add(tip);
+ eng.add(exhaustPipe);}
+
+// ═══ ЧАСТИЦЫ ДЫМА ═══
+const smokePool = [];
+const smokeGeo = new THREE.SphereGeometry(0.018, 8, 6);
+
+// ═══ ФУНКЦИИ ЭФФЕКТОВ ═══
+function spawnSpark() {
+  // 6 искр от свечи, разлетаются в стороны
+  for (let i = 0; i < 6; i++) {
+    const m = new THREE.Mesh(sparkGeo, sparkMat);
+    m.position.set((Math.random()-0.5)*0.008,
+                   0.235 + Math.random()*0.01,
+                   (Math.random()-0.5)*0.008);
+    eng.add(m);
+    sparkPool.push({
+      mesh: m,
+      life: 0.12,
+      vx: (Math.random()-0.5)*0.6,
+      vy: (Math.random()-0.5)*0.4,
+      vz: (Math.random()-0.5)*0.6
+    });
+  }
+}
+
+function updateSparks(dt) {
+  for (let i = sparkPool.length-1; i >= 0; i--) {
+    const s = sparkPool[i];
+    s.life -= dt;
+    if (s.life <= 0) {
+      eng.remove(s.mesh);
+      sparkPool.splice(i, 1);
+      continue;
+    }
+    s.mesh.position.x += s.vx * dt;
+    s.mesh.position.y += s.vy * dt;
+    s.mesh.position.z += s.vz * dt;
+    s.mesh.material.opacity = s.life / 0.12;
+  }
+}
+
+function spawnSmoke() {
+  // Дым из выхлопной трубы
+  const m = new THREE.Mesh(smokeGeo, new THREE.MeshBasicMaterial({
+    color: 0x909090,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false
+  }));
+  m.position.set(
+    exhaustPipe.position.x + (Math.random()-0.5)*0.008,
+    exhaustPipe.position.y,
+    exhaustPipe.position.z - 0.10
+  );
+  eng.add(m);
+  smokePool.push({
+    mesh: m,
+    life: 1.2,
+    maxLife: 1.2,
+    vy: 0.015 + Math.random()*0.01,
+    vz: -0.04 - Math.random()*0.03,
+    vx: (Math.random()-0.5)*0.02
+  });
+}
+
+function updateSmoke(dt) {
+  for (let i = smokePool.length-1; i >= 0; i--) {
+    const s = smokePool[i];
+    s.life -= dt;
+    if (s.life <= 0) {
+      eng.remove(s.mesh);
+      s.mesh.material.dispose();
+      smokePool.splice(i, 1);
+      continue;
+    }
+    s.mesh.position.x += s.vx * dt;
+    s.mesh.position.y += s.vy * dt;
+    s.mesh.position.z += s.vz * dt;
+    const t = s.life / s.maxLife;
+    s.mesh.material.opacity = t * 0.35;
+    const scale = 1 + (1-t) * 2.5;
+    s.mesh.scale.setScalar(scale);
+  }
+}
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);});
+
+// ═══ ЗВУК ═══
+let ac=null, master=null, osc1=null, g1=null, osc2=null, g2=null, nz=null, ng=null;
+let audioReady=false;
+
+function initAudio(){
+  if(audioReady) return;
+  try{
+    ac=new (window.AudioContext||window.webkitAudioContext)();
+    master=ac.createGain();master.gain.value=0.5;master.connect(ac.destination);
+
+    osc1=ac.createOscillator();osc1.type='sawtooth';osc1.frequency.value=30;
+    const lp1=ac.createBiquadFilter();lp1.type='lowpass';lp1.frequency.value=800;
+    g1=ac.createGain();g1.gain.value=0;
+    osc1.connect(lp1).connect(g1).connect(master);osc1.start();
+
+    osc2=ac.createOscillator();osc2.type='square';osc2.frequency.value=60;
+    const lp2=ac.createBiquadFilter();lp2.type='lowpass';lp2.frequency.value=1500;
+    g2=ac.createGain();g2.gain.value=0;
+    osc2.connect(lp2).connect(g2).connect(master);osc2.start();
+
+    const buf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    nz=ac.createBufferSource();nz.buffer=buf;nz.loop=true;
+    const nf=ac.createBiquadFilter();nf.type='lowpass';nf.frequency.value=400;
+    ng=ac.createGain();ng.gain.value=0;
+    nz.connect(nf).connect(ng).connect(master);nz.start();
+
+    audioReady=true;
+    document.getElementById('snd').textContent='🔊 ЗВУК ВКЛ';
+    document.getElementById('snd').classList.add('on');
+  }catch(e){console.error('audio',e);}
+}
+
+function updateSound(){
+  if(!audioReady) return;
+  const t=ac.currentTime;
+  const running=(state==='RUNNING');
+  const starting=(state==='STARTING');
+  const rpm=lastRPM;
+  if(running){
+    const f=Math.max(20,rpm/60);
+    osc1.frequency.setTargetAtTime(f,t,0.03);
+    osc2.frequency.setTargetAtTime(f*2,t,0.03);
+    g1.gain.setTargetAtTime(Math.min(0.35,0.1+rpm/12000*0.25),t,0.08);
+    g2.gain.setTargetAtTime(Math.min(0.12,rpm/15000*0.12),t,0.08);
+    ng.gain.setTargetAtTime(Math.min(0.1,rpm/15000*0.1),t,0.1);
+  } else if(starting){
+    osc1.frequency.setTargetAtTime(40,t,0.05);
+    osc2.frequency.setTargetAtTime(80,t,0.05);
+    g1.gain.setTargetAtTime(0.08,t,0.05);
+    g2.gain.setTargetAtTime(0.04,t,0.05);
+    ng.gain.setTargetAtTime(0.05,t,0.05);
+  } else {
+    g1.gain.setTargetAtTime(0,t,0.15);
+    g2.gain.setTargetAtTime(0,t,0.15);
+    ng.gain.setTargetAtTime(0,t,0.15);
+  }
+}
+
+function fireSound(){
+  if(!audioReady) return;
+  const t=ac.currentTime;
+  const o=ac.createOscillator();o.type='square';
+  o.frequency.value=60+Math.random()*40;
+  const g=ac.createGain();
+  g.gain.setValueAtTime(0.3,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.08);
+  o.connect(g).connect(master);o.start();o.stop(t+0.1);
+}
+
+document.getElementById('snd').onclick=()=>{
+  if(!audioReady) initAudio();
+  if(ac&&ac.state==='suspended') ac.resume();
+};
+document.addEventListener('pointerdown',()=>{
+  if(!audioReady) initAudio();
+  if(ac&&ac.state==='suspended') ac.resume();
+});
+
+// ═══ СОСТОЯНИЕ ═══
+let theta=0, omega=0, crankDeg=0;
+let state='STOPPED';
+let throttle=0, targetAFR=14.7, sparkAdv=-15, oilLevel=0.8;
+let starter=0;
+let lastRPM=0, torque=0, power=0;
+let Toil=293, oilPress=0, Tcyl=293, Pcyl=101325;
+let mAir=0, mFuel=0;
+
+let combusting=false, burnFrac=0;
+let prevCrankDeg=0;
+
+const wear = { rings:0, bearings:0, valves:0, bore:0, piston:0, oil:0 };
+
+const intake={x:0,v:0};
+const exhaust={x:0,v:0};
+
+// ═══ ФИЗИКА ═══
+function step(dt){
+  let tau_s=0;
+  if(state==='STARTING'){
+    if(starter>0){
+      starter-=dt;
+      if(omega<100) tau_s=35;
+    } else {
+      const r=Math.abs(omega)*60/(2*Math.PI);
+      if(r<300){ state='STOPPED'; omega=0; return; }
+      else { state='RUNNING'; }
+    }
+  }
+
+  let tau_g=0;
+  if(state==='RUNNING'){
+    const targetRPM = 800 + throttle * 11200;
+    const targetOmega = targetRPM * 2*Math.PI/60;
+
+    const afrErr = Math.abs(targetAFR - 14.7) / 14.7;
+    const afrEff = Math.max(0.3, 1 - afrErr * 1.5);
+    const spkErr = Math.abs(sparkAdv + 15) / 30;
+    const spkEff = Math.max(0.4, 1 - spkErr * 0.8);
+    const eff = afrEff * spkEff;
+
+    tau_g = (targetOmega - omega) * 3 * eff;
+    tau_g = Math.max(-80, Math.min(80, tau_g));
+  }
+
+  const oilMul = 1 + (1 - oilLevel) * 3;
+  const sgn = omega >= 0 ? 1 : -1;
+  const tau_f = -(0.3 + 0.02 * Math.abs(omega)) * oilMul * sgn;
+
+  const tau = tau_g + tau_s + tau_f;
+  torque = tau_g;
+  power = tau_g * omega;
+  omega += tau / 0.3 * dt;
+
+  theta += omega * dt;
+  crankDeg = ((theta * 180 / Math.PI) % 720 + 720) % 720;
+
+  const rpm = Math.abs(omega) * 60 / (2*Math.PI);
+  lastRPM = rpm;
+
+  if(rpm > 12000) omega = Math.sign(omega) * 12000 * 2*Math.PI/60;
+
+  if(state==='STOPPING'){
+    omega *= Math.pow(0.25, dt);
+    if(Math.abs(omega) < 5){ state='STOPPED'; omega=0; }
+  }
+
+  // ── Логика искры и сгорания (для визуала пламени и искр) ──
+  const sparkWrapped = ((720 + sparkAdv) % 720 + 720) % 720;
+  if(prevCrankDeg < sparkWrapped && crankDeg >= sparkWrapped && Math.abs(omega) > 3){
+    if(state==='RUNNING' || state==='STARTING'){
+      combusting = true;
+      burnFrac = 0;
+      spawnSpark();       // ← визуал искры
+      fireSound();
+    }
+  }
+  prevCrankDeg = crankDeg;
+
+  if(combusting){
+    burnFrac += dt / 0.05;   // 50 мс на полное сгорание
+    if(burnFrac >= 1){ combusting = false; burnFrac = 0; }
+  }
+
+  // ── Износ ──
+  if(state==='RUNNING'){
+    const rpmN = Math.min(1, rpm / 8500);
+    const loadN = 0.3 + throttle * 0.7;
+    const tempN = Math.max(0, (Tcyl - 100) / 500);
+    const oMul = 1 + (1 - oilLevel) * 4;
+
+    wear.rings += rpmN * loadN * tempN * oMul * 0.00010 * dt;
+    wear.bearings += rpmN * rpmN * oMul * 0.00007 * dt;
+    wear.valves += tempN * loadN * 0.00008 * dt;
+    wear.bore += rpmN * oMul * 0.00005 * dt;
+    wear.piston += tempN * rpmN * 0.00006 * dt;
+    const oilStress = Math.max(0, (Toil - 110) / 80);
+    wear.oil += oilStress * 0.00015 * dt;
+
+    for(const k in wear){ if(wear[k] > 1) wear[k] = 1; }
+  }
+
+  const broken = Object.keys(wear).find(k => wear[k] >= 1);
+  if(broken && state !== 'FAILED') state = 'FAILED';
+
+  Tcyl = 90 + throttle * 500 + (rpm > 100 ? 30 : 0);
+  Toil = 40 + throttle * 90 + (rpm/12000) * 30 + (1-oilLevel)*20;
+  oilPress = rpm > 100 ? Math.min(5, rpm/1000) * oilLevel : 0;
+  Pcyl = (1 + throttle * 40 + (rpm > 100 ? 15 : 0)) * 1e5;
+  mAir = throttle * 0.0012;
+  mFuel = mAir / targetAFR;
+}
+
+// ═══ UI ═══
+const $=id=>document.getElementById(id);
+const btn=$('btn');
+const stateLabel=$('state');
+
+const params=[['rpm','RPM',''],['torque','МОМ','Нм'],['power','МОЩ','кВт'],
+  ['P','ДАВЛ','бар'],['T','T ЦИЛ','°C'],['Toil','T МАС','°C'],
+  ['Poil','P МАС','бар'],['afr','AFR',''],['vib','ВИБР','']];
+const grid=$('grid');const cells={};
+for(const[k,l,u]of params){
+  const d=document.createElement('div');d.className='c';
+  d.innerHTML=`<div class="k">${l}</div><div class="v"><span>0</span></div>`;
+  grid.appendChild(d);cells[k]=d;
+}
+
+$('thr').oninput=e=>{throttle=e.target.value/100;$('v1').textContent=e.target.value+'%';};
+$('afr').oninput=e=>{targetAFR=+e.target.value;$('v2').textContent=(+e.target.value).toFixed(1);};
+$('spk').oninput=e=>{sparkAdv=+e.target.value;$('v3').textContent=e.target.value+'°';};
+$('oil').oninput=e=>{oilLevel=e.target.value/100;$('v4').textContent=e.target.value+'%';};
+
+btn.onclick=()=>{
+  if(!audioReady) initAudio();
+  if(ac&&ac.state==='suspended') ac.resume();
+  if(state==='RUNNING'||state==='STARTING'){
+    state='STOPPING';
+    throttle=0;
+    $('thr').value=0;
+    $('v1').textContent='0%';
+  } else if(state==='FAILED'){
+    state='STOPPED';
+    for(const k in wear) wear[k]=0;
+    omega=0;theta=0;crankDeg=0;
+    combusting=false; burnFrac=0;
+  } else {
+    state='STARTING';
+    starter=1.5;
+    omega=0;theta=0;crankDeg=0;
+    combusting=false; burnFrac=0;
+  }
+};
+
+addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();btn.click();}
+});
+
+function updateUI(){
+  if(state==='RUNNING'){btn.textContent='STOP';btn.className='run';}
+  else if(state==='STARTING'){btn.textContent='...';btn.className='start';}
+  else if(state==='STOPPING'){btn.textContent='STOP';btn.className='start';}
+  else if(state==='FAILED'){btn.textContent='RESET';btn.className='fail';}
+  else {btn.textContent='START';btn.className='';}
+  stateLabel.textContent=state;
+
+  const c=(k,v)=>{cells[k].querySelector('.v').innerHTML=`<span>${v}</span>`;};
+  c('rpm',lastRPM.toFixed(0));
+  c('torque',torque.toFixed(1));
+  c('power',(power/1000).toFixed(2));
+  c('P',(Pcyl/1e5).toFixed(2));
+  c('T',(Tcyl-273).toFixed(0));
+  c('Toil',(Toil-273).toFixed(0));
+  c('Poil',oilPress.toFixed(2));
+  c('afr',targetAFR.toFixed(1));
+  c('vib',(lastRPM/1500).toFixed(2));
+
+  for(const k in wear){
+    const pct = wear[k] * 100;
+    $('w_'+k).textContent = pct.toFixed(1) + '%';
+    const bar = $('wb_'+k);
+    bar.style.width = pct + '%';
+    bar.style.background = pct > 70 ? '#e5484d'
+                         : pct > 40 ? '#e8a33d'
+                         : '#17c06a';
+  }
+}
+
+// ═══ ВИЗУАЛЬНЫЕ ОБНОВЛЕНИЯ ═══
+let smokeAcc = 0;
+
+function updateVisuals(dt){
+  // Кинематика
+  crank.rotation.x = theta;
+  fly.rotation.x = theta;
+  const s=Math.sin(theta), c=Math.cos(theta);
+  const yp = R*c + Math.sqrt(Math.max(0, L*L - R*R*s*s));
+  pist.position.y = yp;
+  rings.position.y = yp;
+  const pinY=R*c, pinZ=R*s;
+  rod.position.set(0, pinY, pinZ);
+  const dy = yp-pinY, dz = -pinZ;
+  rod.rotation.x = Math.atan2(dz, dy);
+
+  // Клапаны
+  for(const n of ['intake','exhaust']){
+    const v = n==='intake' ? intake : exhaust;
+    for(const mm of vM[n]){
+      mm.stem.position.y = mm.bs - v.x;
+      mm.plate.position.y = mm.bp - v.x;
+    }
+  }
+
+  // ═══ ПЛАМЯ ═══
+  // Центр пламени — между поршнем и ГБЦ
+  const flameY = yp + 0.020;
+  flameMesh.position.set(0, flameY, 0);
+  flameCore.position.set(0, flameY, 0);
+
+  // Интенсивность горения: 0 → 1 → 0 за время сгорания
+  const flameIntensity = combusting ? Math.sin(burnFrac * Math.PI) : 0;
+
+  flameMesh.material.opacity = flameIntensity * 0.9;
+  flameCore.material.opacity = flameIntensity * 1.0;
+
+  // Размер пламени пульсирует
+  const flameScale = 0.7 + flameIntensity * 1.3;
+  flameMesh.scale.setScalar(flameScale);
+  flameCore.scale.setScalar(flameScale);
+
+  // Свет пламени
+  flameLight.position.set(0, flameY, 0);
+  flameLight.intensity = flameIntensity * 3;
+  flameLight.distance = 0.3 + flameIntensity * 0.2;
+
+  // ═══ МАСЛО ═══
+  // Верхний край масла зависит от oilLevel
+  const oilTopY = -0.085 + oilLevel * 0.085;
+  const oilHeight = 0.06 * oilLevel;
+  oilMesh.scale.y = Math.max(0.01, oilLevel);
+  oilMesh.position.set(0, oilTopY - 0.03 * oilLevel, 0);
+
+  // Цвет масла от температуры: янтарный → тёмно-коричневый
+  const oilT = Math.min(1, Math.max(0, (Toil - 60) / 100));
+  const r = 0.55 + oilT * 0.15;
+  const g = 0.42 - oilT * 0.25;
+  const b = 0.12 - oilT * 0.10;
+  oilMesh.material.color.setRGB(r, g, b);
+
+  // Свечение от температуры масла
+  oilMesh.material.emissive.setRGB(oilT * 0.15, 0, 0);
+
+  // ═══ ТЕПЛОВОЕ СВЕЧЕНИЕ ДЕТАЛЕЙ ═══
+  // Поршень: свечение от температуры цилиндра
+  const heat = Math.min(1, Math.max(0, (Tcyl - 150) / 700));
+  pistonMat.emissive.setRGB(heat * 0.8, heat * 0.15, 0);
+  pistonMat.emissiveIntensity = heat * 1.2;
+
+  // Цилиндр светится, но слабее
+  cylMat.emissive.setRGB(heat * 0.5, heat * 0.1, 0);
+  cylMat.emissiveIntensity = heat * 0.6;
+
+  // Свеча ярче светится при сгорании
+  const sparkGlow = flameIntensity;
+  sparkGroup.children.forEach(m => {
+    if(!m.material.emissive) return;
+    m.material.emissive.setRGB(sparkGlow, sparkGlow * 0.6, 0);
+  });
+
+  // ═══ ДЫМ ИЗ ВЫХЛОПА ═══
+  // Чем больше газа и оборотов, тем больше дыма
+  if(state==='RUNNING'){
+    smokeAcc += dt;
+    const rate = 0.05 / (0.02 + throttle * 0.5);   // 50 мс при макс. газе
+    while(smokeAcc > rate){
+      smokeAcc -= rate;
+      spawnSmoke();
+    }
+  } else {
+    smokeAcc = 0;
+  }
+  updateSmoke(dt);
+  updateSparks(dt);
+}
+
+// ═══ ГЛАВНЫЙ ЦИКЛ ═══
+let last=performance.now(), uiAcc=0;
+function tick(now){
+  requestAnimationFrame(tick);
+  const dt = Math.min((now-last)/1000, 0.033);
+  last = now;
+
+  if(state!=='STOPPED' && state!=='FAILED'){
+    for(let i=0; i<4; i++) step(dt/4);
+  }
+
+  updateVisuals(dt);
+  updateSound();
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  uiAcc += dt;
+  if(uiAcc > 0.08){ uiAcc = 0; updateUI(); }
+}
+
+pist.position.y = R + L;
+rings.position.y = R + L;
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
